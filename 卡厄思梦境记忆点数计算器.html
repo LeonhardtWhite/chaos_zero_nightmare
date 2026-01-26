@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>卡厄思梦境记忆点数计算器</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap');
+
+    body {
+      font-family: 'Noto Sans SC', sans-serif;
+      background-color: #0f172a;
+      color: #f1f5f9;
+    }
+
+    .chaos-card {
+      background: linear-gradient(145deg, #1e293b, #0f172a);
+      border: 1px solid #334155;
+      transition: all 0.3s ease;
+    }
+
+    .chaos-card:hover {
+      border-color: #6366f1;
+      box-shadow: 0 0 15px rgba(99, 102, 241, 0.2);
+    }
+
+    .input-group input {
+      background-color: #1e293b;
+      border: 1px solid #475569;
+      color: #f8fafc;
+      padding: 0.5rem;
+      border-radius: 0.375rem;
+      width: 100%;
+    }
+
+    .input-group input:focus {
+      outline: none;
+      border-color: #818cf8;
+      box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.35);
+    }
+
+    .status-safe { color: #4ade80; }
+    .status-warning { color: #fbbf24; }
+    .status-danger { color: #f87171; }
+
+    .btn-primary {
+      background-color: #6366f1;
+      color: white;
+      padding: 0.5rem 1rem;
+      border-radius: 0.5rem;
+      font-weight: 500;
+      transition: opacity 0.2s;
+    }
+
+    .btn-primary:hover { opacity: 0.9; }
+
+    details summary {
+      cursor: pointer;
+      list-style: none;
+    }
+
+    details summary::-webkit-details-marker {
+      display: none;
+    }
+  </style>
+</head>
+<body class="p-4 md:p-8 min-h-screen">
+  <div id="app" class="max-w-6xl mx-auto">
+    <header class="mb-8 flex flex-col md:flex-row justify-between items-center gap-4">
+      <h1 class="text-3xl font-bold flex items-center gap-2">
+        <i data-lucide="brain-circuit" class="text-indigo-400"></i>
+        卡厄思梦境记忆点数计算器
+      </h1>
+      <div class="flex gap-2">
+        <button onclick="addCharacter()" class="btn-primary flex items-center gap-1">
+          <i data-lucide="user-plus" size="18"></i> 添加角色
+        </button>
+        <button onclick="resetAll()" class="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg flex items-center gap-1">
+          <i data-lucide="rotate-ccw" size="18"></i> 重置全局
+        </button>
+      </div>
+    </header>
+
+    <!-- 全局设置区 -->
+    <section class="chaos-card rounded-xl p-6 mb-8 grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
+      <div class="input-group">
+        <label class="block text-sm text-slate-400 mb-1">当前 Tier (1-6)</label>
+        <input type="number" id="global-tier" value="1" min="1" max="6" onchange="updateGlobal()">
+      </div>
+      <div class="input-group">
+        <label class="block text-sm text-slate-400 mb-1">Tier 修正 (梦境/Codex)</label>
+        <input type="number" id="global-mod" value="0" onchange="updateGlobal()">
+      </div>
+      <div class="md:col-span-2 flex items-center justify-center md:justify-end bg-slate-800/50 p-4 rounded-lg border border-slate-700">
+        <div class="text-center md:text-right">
+          <span class="text-slate-400 text-sm">当前计算上限 (Cap)</span>
+          <div class="text-4xl font-black text-indigo-400" id="display-cap">30</div>
+          <div class="text-[11px] text-slate-500 mt-1">公式：Cap = 20 + 10 × (Tier + 修正)</div>
+        </div>
+      </div>
+    </section>
+
+    <main id="character-list" class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6"></main>
+  </div>
+
+  <script>
+    /**
+     * 该版本把“点数”对齐到你前面讨论的规则：
+     * - Cap = 20 + 10*(Tier + Mod)
+     * - 中立卡 +20；怪物卡 +80；禁忌中立（保证保存）这里默认不计入点数（仅展示用）
+     * - 普闪/顿悟：仅对“非角色卡(中立/怪物)”计 +10；角色卡普闪=0
+     * - 神闪/神顿悟：+20（任何卡）
+     * - 删卡/复制：第1次0，第2次+10，第3次+30，第4次+50，第5次及以后每次+70
+     * - 删“基本/角色卡”：每张额外 +20
+     * - 转换：每次 +10（转换后的卡如果是中立/怪物，需要在“带出卡构成”里体现其数量）
+     * - [Remove] 删除/转换：不计入次数（因此从总次数里扣除）
+     */
+
+    const SCORING = {
+      CARD_NEUTRAL: 20,
+      CARD_MONSTER: 80,
+      // 禁忌中立：通常“保证保存”，是否计入点数在不同整理里存在差异；
+      // 这里默认不计入点数，仅作为“带出构成”展示。
+      CARD_TABOO: 0,
+
+      EPIPHANY_NONCHAR_NORMAL: 10, // 普闪/普通顿悟（仅非角色卡）
+      EPIPHANY_DIVINE_ANY: 20,     // 神闪（任何卡）
+
+      OP_CONVERT: 10               // 转换动作本身
+    };
+
+    const STEP_COSTS = [0, 10, 30, 50, 70]; // 第1..第5次，之后一直按70
+
+    function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
+
+    function stepSum(n) {
+      n = Math.max(0, n|0);
+      let s = 0;
+      for (let i = 1; i <= n; i++) {
+        s += (i <= STEP_COSTS.length) ? STEP_COSTS[i - 1] : STEP_COSTS[STEP_COSTS.length - 1];
+      }
+      return s;
+    }
+
+    function calcCap(tier, mod) {
+      const t = clamp((tier|0) + (mod|0), 1, 15); // 15只是安全上限，可按版本改
+      return 20 + t * 10; // Tier1=30
+    }
+
+    // 状态
+    let state = {
+      tier: 1,
+      mod: 0,
+      cap: 30,
+      characters: [
+        { id: Date.now(),   name: '勇者 1', inputs: createDefaultInputs() },
+        { id: Date.now()+1, name: '勇者 2', inputs: createDefaultInputs() },
+        { id: Date.now()+2, name: '勇者 3', inputs: createDefaultInputs() }
+      ]
+    };
+
+    function createDefaultInputs() {
+      return {
+        // 这些“卡构成”建议填写“最终要带出的存档里实际存在的数量”
+        neutral: 0,
+        monster: 0,
+        taboo: 0,
+
+        // 普闪/顿悟：分成“非角色卡(中立/怪物)”和“角色卡”
+        shiny_norm: 0,   // 非角色卡普闪（计分 +10/次）
+        shiny_divine: 0, // 神闪（任何卡，计分 +20/次）
+        shiny_char: 0,   // 角色卡普闪（不计分，仅记录）
+
+        // 操作次数（总次数）
+        del_total: 0,
+        del_base: 0,     // 其中删的是基本/角色卡的数量（必须 <= del_total）
+        copy_total: 0,
+        trans_total: 0,
+
+        // 高级项（不计分）：用于从“总次数”里扣掉（因为 [Remove] 不计入次数）
+        adv_del_remove: 0,
+        adv_trans_remove: 0
+      };
+    }
+
+    window.onload = () => {
+      const saved = localStorage.getItem('chaos_calc_state');
+      if (saved) {
+        try {
+          state = JSON.parse(saved);
+          document.getElementById('global-tier').value = state.tier ?? 1;
+          document.getElementById('global-mod').value = state.mod ?? 0;
+        } catch (e) {}
+      }
+      updateGlobal();
+      lucide.createIcons();
+    };
+
+    function saveState() {
+      localStorage.setItem('chaos_calc_state', JSON.stringify(state));
+    }
+
+    function updateGlobal() {
+      state.tier = parseInt(document.getElementById('global-tier').value) || 1;
+      state.mod  = parseInt(document.getElementById('global-mod').value) || 0;
+
+      state.cap = calcCap(state.tier, state.mod);
+      document.getElementById('display-cap').innerText = state.cap;
+
+      renderCharacters();
+      saveState();
+    }
+
+    function addCharacter() {
+      state.characters.push({
+        id: Date.now(),
+        name: `角色 ${state.characters.length + 1}`,
+        inputs: createDefaultInputs()
+      });
+      renderCharacters();
+      saveState();
+    }
+
+    function removeCharacter(id) {
+      state.characters = state.characters.filter(c => c.id !== id);
+      renderCharacters();
+      saveState();
+    }
+
+    function resetAll() {
+      if (confirm('确定要重置所有数据吗？')) {
+        state.tier = 1;
+        state.mod = 0;
+        state.characters = [
+          { id: Date.now(),   name: '角色 1', inputs: createDefaultInputs() },
+          { id: Date.now()+1, name: '角色 2', inputs: createDefaultInputs() }
+        ];
+        document.getElementById('global-tier').value = 1;
+        document.getElementById('global-mod').value = 0;
+        updateGlobal();
+      }
+    }
+
+    function updateInput(charId, field, value) {
+      const char = state.characters.find(c => c.id === charId);
+      if (!char) return;
+
+      if (field === 'name') {
+        char.name = value;
+      } else {
+        char.inputs[field] = Math.max(0, parseInt(value) || 0);
+      }
+      renderCharacters();
+      saveState();
+    }
+
+    function calculatePoints(inputs) {
+      // [Remove] 的删除/转换不计入次数：从总次数中扣除
+      const effDelTotal   = Math.max(0, (inputs.del_total|0)   - (inputs.adv_del_remove|0));
+      const effTransTotal = Math.max(0, (inputs.trans_total|0) - (inputs.adv_trans_remove|0));
+
+      // del_base 必须 <= effDelTotal
+      const effDelBase = clamp(inputs.del_base|0, 0, effDelTotal);
+
+      const breakdown = {};
+
+      breakdown.cards =
+        (inputs.neutral|0) * SCORING.CARD_NEUTRAL +
+        (inputs.monster|0) * SCORING.CARD_MONSTER +
+        (inputs.taboo|0)   * SCORING.CARD_TABOO;
+
+      // 普闪/顿悟：只计算“非角色卡普闪”
+      breakdown.epiphany =
+        (inputs.shiny_norm|0)   * SCORING.EPIPHANY_NONCHAR_NORMAL +
+        (inputs.shiny_divine|0) * SCORING.EPIPHANY_DIVINE_ANY;
+
+      // 删卡：阶梯递增 + 删角色卡额外 +20/张
+      breakdown.removal =
+        stepSum(effDelTotal) +
+        effDelBase * 20;
+
+      // 复制：阶梯递增（复制出来的卡如果是中立/怪物，应在“卡构成”里反映数量）
+      breakdown.dup =
+        stepSum(inputs.copy_total|0);
+
+      // 转换：每次 +10（转换结果的卡类型成本同样由“卡构成”反映）
+      breakdown.conv =
+        effTransTotal * SCORING.OP_CONVERT;
+
+      const total =
+        breakdown.cards +
+        breakdown.epiphany +
+        breakdown.removal +
+        breakdown.dup +
+        breakdown.conv;
+
+      return { total, breakdown, meta: { effDelTotal, effTransTotal, effDelBase } };
+    }
+
+    function renderCharacters() {
+      const container = document.getElementById('character-list');
+      container.innerHTML = '';
+
+      const cap = Math.max(1, state.cap|0);
+
+      state.characters.forEach(char => {
+        const { total, breakdown, meta } = calculatePoints(char.inputs);
+        const remaining = cap - total;
+        const percent = (total / cap) * 100;
+
+        let statusClass = 'status-safe';
+        let statusText = '安全';
+        if (percent >= 100) { statusClass = 'status-danger'; statusText = '超上限'; }
+        else if (percent > 85) { statusClass = 'status-warning'; statusText = '接近上限'; }
+
+        const card = document.createElement('div');
+        card.className = 'chaos-card rounded-xl overflow-hidden flex flex-col';
+        card.innerHTML = `
+          <div class="p-4 border-b border-slate-700 bg-slate-800/30">
+            <div class="flex justify-between items-start mb-2">
+              <input type="text" value="${escapeHtml(char.name)}"
+                class="bg-transparent border-none text-lg font-bold focus:ring-0 w-2/3"
+                onchange="updateInput(${char.id}, 'name', this.value)">
+              <button onclick="removeCharacter(${char.id})" class="text-slate-500 hover:text-red-400">
+                <i data-lucide="trash-2" size="18"></i>
+              </button>
+            </div>
+            <div class="flex justify-between items-baseline">
+              <div class="text-2xl font-black ${statusClass}">
+                ${total} <span class="text-sm font-normal text-slate-400">/ ${cap}</span>
+              </div>
+              <div class="text-xs font-bold uppercase tracking-wider ${statusClass}">${statusText}</div>
+            </div>
+            <div class="text-xs text-slate-400 mt-1">
+              剩余点数: <span class="${remaining < 0 ? 'text-red-400' : ''}">${remaining}</span>
+            </div>
+            <div class="text-[10px] text-slate-500 mt-1">
+              计入次数：删卡 ${meta.effDelTotal}（其中删角色卡 ${meta.effDelBase}），转换 ${meta.effTransTotal}
+            </div>
+          </div>
+
+          <div class="p-4 space-y-4 flex-grow">
+            <div>
+              <label class="text-xs font-bold text-indigo-400 uppercase mb-2 block">带出卡构成（最终存档）</label>
+              <div class="grid grid-cols-3 gap-2">
+                <div class="input-group">
+                  <span class="text-[10px] text-slate-500">中立（+20）</span>
+                  <input type="number" min="0" value="${char.inputs.neutral}"
+                    onchange="updateInput(${char.id}, 'neutral', this.value)">
+                </div>
+                <div class="input-group">
+                  <span class="text-[10px] text-slate-500">怪物（+80）</span>
+                  <input type="number" min="0" value="${char.inputs.monster}"
+                    onchange="updateInput(${char.id}, 'monster', this.value)">
+                </div>
+                <div class="input-group">
+                  <span class="text-[10px] text-slate-500">禁忌中立（保证保存，默认不计）</span>
+                  <input type="number" min="0" value="${char.inputs.taboo}"
+                    onchange="updateInput(${char.id}, 'taboo', this.value)">
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label class="text-xs font-bold text-indigo-400 uppercase mb-2 block">闪/顿悟次数</label>
+              <div class="grid grid-cols-3 gap-2">
+                <div class="input-group">
+                  <span class="text-[10px] text-slate-500">非角色普闪（+10）</span>
+                  <input type="number" min="0" value="${char.inputs.shiny_norm}"
+                    onchange="updateInput(${char.id}, 'shiny_norm', this.value)">
+                </div>
+                <div class="input-group">
+                  <span class="text-[10px] text-slate-500">神闪（任何卡 +20）</span>
+                  <input type="number" min="0" value="${char.inputs.shiny_divine}"
+                    onchange="updateInput(${char.id}, 'shiny_divine', this.value)">
+                </div>
+                <div class="input-group">
+                  <span class="text-[10px] text-slate-500 italic">角色普闪（0）</span>
+                  <input type="number" min="0" value="${char.inputs.shiny_char}"
+                    onchange="updateInput(${char.id}, 'shiny_char', this.value)">
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label class="text-xs font-bold text-indigo-400 uppercase mb-2 block">操作次数</label>
+              <div class="grid grid-cols-2 gap-3">
+                <div class="input-group">
+                  <span class="text-[10px] text-slate-500">总删卡（阶梯递增）</span>
+                  <input type="number" min="0" value="${char.inputs.del_total}"
+                    onchange="updateInput(${char.id}, 'del_total', this.value)">
+                </div>
+                <div class="input-group">
+                  <span class="text-[10px] text-slate-500">删基本/角色卡（每张 +20）</span>
+                  <input type="number" min="0" value="${char.inputs.del_base}"
+                    onchange="updateInput(${char.id}, 'del_base', this.value)">
+                </div>
+                <div class="input-group">
+                  <span class="text-[10px] text-slate-500">复制（阶梯递增）</span>
+                  <input type="number" min="0" value="${char.inputs.copy_total}"
+                    onchange="updateInput(${char.id}, 'copy_total', this.value)">
+                </div>
+                <div class="input-group">
+                  <span class="text-[10px] text-slate-500">转换（每次 +10）</span>
+                  <input type="number" min="0" value="${char.inputs.trans_total}"
+                    onchange="updateInput(${char.id}, 'trans_total', this.value)">
+                </div>
+              </div>
+              <div class="text-[10px] text-slate-500 mt-2 leading-relaxed">
+                提示：复制/转换产生的“中立/怪物卡”请在上方“带出卡构成”里把数量填进去，否则会低估总点数。
+              </div>
+            </div>
+
+            <details class="bg-slate-800/40 rounded p-2">
+              <summary class="text-xs font-bold text-slate-500 flex items-center justify-between">
+                高级项（从次数中扣除，不计分） <i data-lucide="chevron-down" size="14"></i>
+              </summary>
+              <div class="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-slate-700">
+                <div class="input-group">
+                  <span class="text-[10px] text-slate-500">[Remove] 删卡次数（不计入总删卡）</span>
+                  <input type="number" min="0" value="${char.inputs.adv_del_remove}"
+                    onchange="updateInput(${char.id}, 'adv_del_remove', this.value)">
+                </div>
+                <div class="input-group">
+                  <span class="text-[10px] text-slate-500">[Remove] 转换次数（不计入总转换）</span>
+                  <input type="number" min="0" value="${char.inputs.adv_trans_remove}"
+                    onchange="updateInput(${char.id}, 'adv_trans_remove', this.value)">
+                </div>
+              </div>
+            </details>
+          </div>
+
+          <div class="p-4 bg-slate-900/50 border-t border-slate-700 mt-auto">
+            <details>
+              <summary class="text-xs text-indigo-300 flex items-center gap-1 hover:text-indigo-200">
+                <i data-lucide="list" size="12"></i> 查看计分明细
+              </summary>
+              <div class="text-[11px] mt-2 space-y-1 text-slate-400">
+                <div class="flex justify-between"><span>卡牌点数:</span> <span>+${breakdown.cards}</span></div>
+                <div class="flex justify-between"><span>顿悟/闪:</span> <span>+${breakdown.epiphany}</span></div>
+                <div class="flex justify-between"><span>删卡:</span> <span>+${breakdown.removal}</span></div>
+                <div class="flex justify-between"><span>复制:</span> <span>+${breakdown.dup}</span></div>
+                <div class="flex justify-between"><span>转换:</span> <span>+${breakdown.conv}</span></div>
+                <div class="border-t border-slate-700 my-1 pt-1 flex justify-between font-bold text-slate-300">
+                  <span>总计:</span> <span>${total}</span>
+                </div>
+              </div>
+            </details>
+            ${percent >= 100 ? `
+              <div class="mt-3 bg-red-900/30 text-red-400 p-2 rounded text-[10px] flex items-start gap-2 border border-red-900/50 animate-pulse">
+                <i data-lucide="alert-triangle" class="shrink-0" size="14"></i>
+                <span>超上限警告！带出后存在回退/炸档风险。建议减少卡牌或减少“删/复/转”等次数。</span>
+              </div>` : ''
+            }
+          </div>
+        `;
+        container.appendChild(card);
+      });
+
+      lucide.createIcons();
+    }
+
+    function escapeHtml(str) {
+      return String(str ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+  </script>
+</body>
+</html>
