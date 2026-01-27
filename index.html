@@ -109,7 +109,7 @@
     /**
      * 该版本把“点数”对齐到你前面讨论的规则：
      * - Cap = 20 + 10*(Tier + Mod)
-     * - 中立卡 +20；怪物卡 +80；禁忌中立（保证保存）这里默认不计入点数（仅展示用）
+     * - 中立卡 +20；怪物卡 +80；禁忌中立 +20（保证保存）
      * - 普闪/顿悟：仅对“非角色卡(中立/怪物)”计 +10；角色卡普闪=0
      * - 神闪/神顿悟：+20（任何卡）
      * - 删卡/复制：第1次0，第2次+10，第3次+30，第4次+50，第5次及以后每次+70
@@ -121,9 +121,8 @@
     const SCORING = {
       CARD_NEUTRAL: 20,
       CARD_MONSTER: 80,
-      // 禁忌中立：通常“保证保存”，是否计入点数在不同整理里存在差异；
-      // 这里默认不计入点数，仅作为“带出构成”展示。
-      CARD_TABOO: 0,
+      // 禁忌中立：无论是否超分都一定会被保存
+      CARD_TABOO: 20,
 
       EPIPHANY_NONCHAR_NORMAL: 10, // 普闪/普通顿悟（仅非角色卡）
       EPIPHANY_DIVINE_ANY: 20,     // 神闪（任何卡）
@@ -356,7 +355,7 @@
                     onchange="updateInput(${char.id}, 'monster', this.value)">
                 </div>
                 <div class="input-group">
-                  <span class="text-[10px] text-slate-500">禁忌中立（不计分）</span>
+                  <span class="text-[10px] text-slate-500">禁忌中立（+20）</span>
                   <input type="number" min="0" value="${char.inputs.taboo}"
                     onchange="updateInput(${char.id}, 'taboo', this.value)">
                 </div>
@@ -473,5 +472,6 @@
   </script>
 </body>
 </html>
+
 
 
