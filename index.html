@@ -86,8 +86,8 @@
     <!-- 全局设置区 -->
     <section class="chaos-card rounded-xl p-6 mb-8 grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
       <div class="input-group">
-        <label class="block text-sm text-slate-400 mb-1">当前 Tier (1-15)</label>
-        <input type="number" id="global-tier" value="1" min="1" max="15" onchange="updateGlobal()">
+        <label class="block text-sm text-slate-400 mb-1">当前 Tier (1-7)</label>
+        <input type="number" id="global-tier" value="1" min="1" max="7" onchange="updateGlobal()">
       </div>
       <div class="input-group">
         <label class="block text-sm text-slate-400 mb-1">Tier 修正 (梦境/Codex)</label>
@@ -144,7 +144,7 @@
     }
 
     function calcCap(tier, mod) {
-      const t = clamp((tier|0) + (mod|0), 1, 15); // 15只是安全上限，可按版本改
+      const t = clamp((tier|0) + (mod|0), 1, 7); // 7为当前上限，可按版本改
       return 20 + t * 10; // Tier1=30
     }
 
@@ -154,9 +154,9 @@
       mod: 0,
       cap: 30,
       characters: [
-        { id: Date.now(),   name: '勇者 1', inputs: createDefaultInputs() },
-        { id: Date.now()+1, name: '勇者 2', inputs: createDefaultInputs() },
-        { id: Date.now()+2, name: '勇者 3', inputs: createDefaultInputs() }
+        { id: Date.now(),   name: '角色 1', inputs: createDefaultInputs() },
+        { id: Date.now()+1, name: '角色 2', inputs: createDefaultInputs() },
+        { id: Date.now()+2, name: '角色 3', inputs: createDefaultInputs() }
       ]
     };
 
@@ -234,7 +234,8 @@
         state.mod = 0;
         state.characters = [
           { id: Date.now(),   name: '角色 1', inputs: createDefaultInputs() },
-          { id: Date.now()+1, name: '角色 2', inputs: createDefaultInputs() }
+          { id: Date.now()+1, name: '角色 2', inputs: createDefaultInputs() },
+          { id: Date.now()+2, name: '角色 3', inputs: createDefaultInputs() }
         ];
         document.getElementById('global-tier').value = 1;
         document.getElementById('global-mod').value = 0;
@@ -472,6 +473,7 @@
   </script>
 </body>
 </html>
+
 
 
 
