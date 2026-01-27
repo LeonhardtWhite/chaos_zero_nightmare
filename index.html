@@ -86,8 +86,8 @@
     <!-- 全局设置区 -->
     <section class="chaos-card rounded-xl p-6 mb-8 grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
       <div class="input-group">
-        <label class="block text-sm text-slate-400 mb-1">当前 Tier (1-6)</label>
-        <input type="number" id="global-tier" value="1" min="1" max="6" onchange="updateGlobal()">
+        <label class="block text-sm text-slate-400 mb-1">当前 Tier (1-15)</label>
+        <input type="number" id="global-tier" value="1" min="1" max="15" onchange="updateGlobal()">
       </div>
       <div class="input-group">
         <label class="block text-sm text-slate-400 mb-1">Tier 修正 (梦境/Codex)</label>
@@ -356,7 +356,7 @@
                     onchange="updateInput(${char.id}, 'monster', this.value)">
                 </div>
                 <div class="input-group">
-                  <span class="text-[10px] text-slate-500">禁忌中立（保证保存，默认不计）</span>
+                  <span class="text-[10px] text-slate-500">禁忌中立（不计分）</span>
                   <input type="number" min="0" value="${char.inputs.taboo}"
                     onchange="updateInput(${char.id}, 'taboo', this.value)">
                 </div>
@@ -473,3 +473,4 @@
   </script>
 </body>
 </html>
+
