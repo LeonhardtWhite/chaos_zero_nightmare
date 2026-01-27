@@ -115,7 +115,7 @@
      * - 删卡/复制：第1次0，第2次+10，第3次+30，第4次+50，第5次及以后每次+70
      * - 删“基本/角色卡”：每张额外 +20
      * - 转换：每次 +10（转换后的卡如果是中立/怪物，需要在“带出卡构成”里体现其数量）
-     * - [Remove] 删除/转换：不计入次数（因此从总次数里扣除）
+     * - [移除] 删除/转换：不计入次数（因此从总次数里扣除）
      */
 
     const SCORING = {
@@ -178,7 +178,7 @@
         copy_total: 0,
         trans_total: 0,
 
-        // 高级项（不计分）：用于从“总次数”里扣掉（因为 [Remove] 不计入次数）
+        // 高级项（不计分）：用于从“总次数”里扣掉（因为 [移除] 不计入次数）
         adv_del_remove: 0,
         adv_trans_remove: 0
       };
@@ -257,7 +257,7 @@
     }
 
     function calculatePoints(inputs) {
-      // [Remove] 的删除/转换不计入次数：从总次数中扣除
+      // [移除] 的删除/转换不计入次数：从总次数中扣除
       const effDelTotal   = Math.max(0, (inputs.del_total|0)   - (inputs.adv_del_remove|0));
       const effTransTotal = Math.max(0, (inputs.trans_total|0) - (inputs.adv_trans_remove|0));
 
@@ -415,16 +415,16 @@
 
             <details class="bg-slate-800/40 rounded p-2">
               <summary class="text-xs font-bold text-slate-500 flex items-center justify-between">
-                高级项（从次数中扣除，不计分） <i data-lucide="chevron-down" size="14"></i>
+                高级项（[移除]效果，仅从次数中扣除，不计分） <i data-lucide="chevron-down" size="14"></i>
               </summary>
               <div class="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-slate-700">
                 <div class="input-group">
-                  <span class="text-[10px] text-slate-500">[Remove] 删卡次数（不计入总删卡）</span>
+                  <span class="text-[10px] text-slate-500">[移除] 删卡次数（不计入总删卡）</span>
                   <input type="number" min="0" value="${char.inputs.adv_del_remove}"
                     onchange="updateInput(${char.id}, 'adv_del_remove', this.value)">
                 </div>
                 <div class="input-group">
-                  <span class="text-[10px] text-slate-500">[Remove] 转换次数（不计入总转换）</span>
+                  <span class="text-[10px] text-slate-500">[移除] 转换次数（不计入总转换）</span>
                   <input type="number" min="0" value="${char.inputs.adv_trans_remove}"
                     onchange="updateInput(${char.id}, 'adv_trans_remove', this.value)">
                 </div>
@@ -473,6 +473,7 @@
   </script>
 </body>
 </html>
+
 
 
 
