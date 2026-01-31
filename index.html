@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -41,9 +42,17 @@
       box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.35);
     }
 
-    .status-safe { color: #4ade80; }
-    .status-warning { color: #fbbf24; }
-    .status-danger { color: #f87171; }
+    .status-safe {
+      color: #4ade80;
+    }
+
+    .status-warning {
+      color: #fbbf24;
+    }
+
+    .status-danger {
+      color: #f87171;
+    }
 
     .btn-primary {
       background-color: #6366f1;
@@ -54,7 +63,9 @@
       transition: opacity 0.2s;
     }
 
-    .btn-primary:hover { opacity: 0.9; }
+    .btn-primary:hover {
+      opacity: 0.9;
+    }
 
     details summary {
       cursor: pointer;
@@ -66,6 +77,7 @@
     }
   </style>
 </head>
+
 <body class="p-4 md:p-8 min-h-screen">
   <div id="app" class="max-w-6xl mx-auto">
     <header class="mb-8 flex flex-col md:flex-row justify-between items-center gap-4">
@@ -77,7 +89,8 @@
         <button onclick="addCharacter()" class="btn-primary flex items-center gap-1">
           <i data-lucide="user-plus" size="18"></i> 添加角色
         </button>
-        <button onclick="resetAll()" class="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg flex items-center gap-1">
+        <button onclick="resetAll()"
+          class="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg flex items-center gap-1">
           <i data-lucide="rotate-ccw" size="18"></i> 重置全局
         </button>
       </div>
@@ -89,11 +102,27 @@
         <label class="block text-sm text-slate-400 mb-1">当前 Tier (1-15)</label>
         <input type="number" id="global-tier" value="1" min="1" max="15" onchange="updateGlobal()">
       </div>
+
       <div class="input-group">
         <label class="block text-sm text-slate-400 mb-1">Tier 修正 (梦境)</label>
-        <input type="number" id="global-mod" value="0" onchange="updateGlobal()">
+        <div class="flex items-center justify-between bg-[#1e293b] border border-[#475569] rounded-md px-3 py-2">
+          <span class="text-xs text-slate-400 select-none">关闭 / 开启</span>
+          <label class="relative inline-flex items-center cursor-pointer select-none">
+            <input type="checkbox" id="global-mod" class="sr-only peer" onchange="updateGlobal()">
+            <div class="w-10 h-5 rounded-full border border-slate-600 bg-slate-800
+                  peer-checked:bg-indigo-600 peer-checked:border-indigo-500
+                  transition-colors
+                  peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-500/30">
+            </div>
+            <div class="absolute left-[2px] top-[2px] w-4 h-4 rounded-full bg-slate-300
+                  peer-checked:translate-x-5 transition-transform">
+            </div>
+          </label>
+        </div>
       </div>
-      <div class="md:col-span-2 flex items-center justify-center md:justify-end bg-slate-800/50 p-4 rounded-lg border border-slate-700">
+
+      <div
+        class="md:col-span-2 flex items-center justify-center md:justify-end bg-slate-800/50 p-4 rounded-lg border border-slate-700">
         <div class="text-center md:text-right">
           <span class="text-slate-400 text-sm">当前计算上限 (Cap)</span>
           <div class="text-4xl font-black text-indigo-400" id="display-cap">30</div>
@@ -135,7 +164,7 @@
     function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
 
     function stepSum(n) {
-      n = Math.max(0, n|0);
+      n = Math.max(0, n | 0);
       let s = 0;
       for (let i = 1; i <= n; i++) {
         s += (i <= STEP_COSTS.length) ? STEP_COSTS[i - 1] : STEP_COSTS[STEP_COSTS.length - 1];
@@ -144,7 +173,7 @@
     }
 
     function calcCap(tier, mod) {
-      const t = clamp((tier|0) + (mod|0), 1, 15); // 15为当前上限，可按版本改
+      const t = clamp((tier | 0) + (mod | 0), 1, 15); // 15为当前上限，可按版本改
       return 20 + t * 10; // Tier1=30
     }
 
@@ -154,9 +183,9 @@
       mod: 0,
       cap: 30,
       characters: [
-        { id: Date.now(),   name: '角色 1', inputs: createDefaultInputs() },
-        { id: Date.now()+1, name: '角色 2', inputs: createDefaultInputs() },
-        { id: Date.now()+2, name: '角色 3', inputs: createDefaultInputs() }
+        { id: Date.now(), name: '角色 1', inputs: createDefaultInputs() },
+        { id: Date.now() + 1, name: '角色 2', inputs: createDefaultInputs() },
+        { id: Date.now() + 2, name: '角色 3', inputs: createDefaultInputs() }
       ]
     };
 
@@ -190,8 +219,9 @@
         try {
           state = JSON.parse(saved);
           document.getElementById('global-tier').value = state.tier ?? 1;
-          document.getElementById('global-mod').value = state.mod ?? 0;
-        } catch (e) {}
+          // document.getElementById('global-mod').value = state.mod ?? 0;
+          document.getElementById('global-mod').checked = (state.mod ?? 0) !== 0;
+        } catch (e) { }
       }
       updateGlobal();
       lucide.createIcons();
@@ -203,7 +233,8 @@
 
     function updateGlobal() {
       state.tier = parseInt(document.getElementById('global-tier').value) || 1;
-      state.mod  = parseInt(document.getElementById('global-mod').value) || 0;
+      // state.mod  = parseInt(document.getElementById('global-mod').value) || 0;
+      state.mod = document.getElementById('global-mod').checked ? 1 : 0;
 
       state.cap = calcCap(state.tier, state.mod);
       document.getElementById('display-cap').innerText = state.cap;
@@ -233,12 +264,13 @@
         state.tier = 1;
         state.mod = 0;
         state.characters = [
-          { id: Date.now(),   name: '角色 1', inputs: createDefaultInputs() },
-          { id: Date.now()+1, name: '角色 2', inputs: createDefaultInputs() },
-          { id: Date.now()+2, name: '角色 3', inputs: createDefaultInputs() }
+          { id: Date.now(), name: '角色 1', inputs: createDefaultInputs() },
+          { id: Date.now() + 1, name: '角色 2', inputs: createDefaultInputs() },
+          { id: Date.now() + 2, name: '角色 3', inputs: createDefaultInputs() }
         ];
         document.getElementById('global-tier').value = 1;
-        document.getElementById('global-mod').value = 0;
+        // document.getElementById('global-mod').value = 0;
+        document.getElementById('global-mod').checked = false;
         updateGlobal();
       }
     }
@@ -258,23 +290,23 @@
 
     function calculatePoints(inputs) {
       // [移除] 的删除/转换不计入次数：从总次数中扣除
-      const effDelTotal   = Math.max(0, (inputs.del_total|0)   - (inputs.adv_del_remove|0));
-      const effTransTotal = Math.max(0, (inputs.trans_total|0) - (inputs.adv_trans_remove|0));
+      const effDelTotal = Math.max(0, (inputs.del_total | 0) - (inputs.adv_del_remove | 0));
+      const effTransTotal = Math.max(0, (inputs.trans_total | 0) - (inputs.adv_trans_remove | 0));
 
       // del_base 必须 <= effDelTotal
-      const effDelBase = clamp(inputs.del_base|0, 0, effDelTotal);
+      const effDelBase = clamp(inputs.del_base | 0, 0, effDelTotal);
 
       const breakdown = {};
 
       breakdown.cards =
-        (inputs.neutral|0) * SCORING.CARD_NEUTRAL +
-        (inputs.monster|0) * SCORING.CARD_MONSTER +
-        (inputs.taboo|0)   * SCORING.CARD_TABOO;
+        (inputs.neutral | 0) * SCORING.CARD_NEUTRAL +
+        (inputs.monster | 0) * SCORING.CARD_MONSTER +
+        (inputs.taboo | 0) * SCORING.CARD_TABOO;
 
       // 普闪/顿悟：只计算“非角色卡普闪”
       breakdown.epiphany =
-        (inputs.shiny_norm|0)   * SCORING.EPIPHANY_NONCHAR_NORMAL +
-        (inputs.shiny_divine|0) * SCORING.EPIPHANY_DIVINE_ANY;
+        (inputs.shiny_norm | 0) * SCORING.EPIPHANY_NONCHAR_NORMAL +
+        (inputs.shiny_divine | 0) * SCORING.EPIPHANY_DIVINE_ANY;
 
       // 删卡：阶梯递增 + 删角色卡额外 +20/张
       breakdown.removal =
@@ -283,7 +315,7 @@
 
       // 复制：阶梯递增（复制出来的卡如果是中立/怪物，应在“卡构成”里反映数量）
       breakdown.dup =
-        stepSum(inputs.copy_total|0);
+        stepSum(inputs.copy_total | 0);
 
       // 转换：每次 +10（转换结果的卡类型成本同样由“卡构成”反映）
       breakdown.conv =
@@ -303,7 +335,7 @@
       const container = document.getElementById('character-list');
       container.innerHTML = '';
 
-      const cap = Math.max(1, state.cap|0);
+      const cap = Math.max(1, state.cap | 0);
 
       state.characters.forEach(char => {
         const { total, breakdown, meta } = calculatePoints(char.inputs);
@@ -453,7 +485,7 @@
                 <i data-lucide="alert-triangle" class="shrink-0" size="14"></i>
                 <span>超上限警告！带出后存在回退/炸档风险。建议减少卡牌或减少“删/复/转”等次数。</span>
               </div>` : ''
-            }
+          }
           </div>
         `;
         container.appendChild(card);
@@ -472,11 +504,5 @@
     }
   </script>
 </body>
+
 </html>
-
-
-
-
-
-
-
