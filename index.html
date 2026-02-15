@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>卡厄思梦境记忆点数计算器 - 战术存档版</title>
+    <title>卡厄思梦境模糊记忆计算器 - 第二赛季</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
@@ -167,7 +167,7 @@
                     <i data-lucide="brain" class="text-blue-500" size="26"></i>
                 </div>
                 <div>
-                    <h1 class="text-xl font-bold tracking-tight text-slate-800">基本存档资料</h1>
+                    <h1 class="text-xl font-bold tracking-tight text-slate-800">卡厄思梦境模糊记忆计算器 - 第二赛季</h1>
                     <p class="text-[10px] text-slate-400 font-mono tracking-widest uppercase">Memory Link Terminal // Sync Status</p>
                 </div>
             </div>
@@ -226,7 +226,7 @@
 
     <script>
         /**
-         * 逻辑已按“你前面确认的记忆点数规则”替换：
+         * 第一赛季 模糊记忆 主要计算规则：
          * - Cap = 20 + 10 * (Tier + Mod)   （Mod开关=+1）
          * - 中立卡 +20；怪物卡 +80；禁忌卡 +20（且必定保存，但仍占点数）
          * - 普闪/顿悟：仅“非角色卡普闪”计 +10（shiny_norm）
@@ -236,22 +236,41 @@
          * - 转换：每次 +10（trans_total）
          * - [Remove]：不计入删卡/转换次数，因此从总次数里扣除（adv_del_rem / adv_trans_rem）
          *
-         * UI 完全不改，只替换逻辑。
+         * 第二赛季 模糊记忆 主要计算规则调整：
+         * - 中立卡 +20；怪物卡 +20/50/80（普通/稀有/传说等稀有度）；禁忌卡 +20（且必定保存，但仍占点数）
+         * - 普闪/顿悟：一律不计分 +0（shiny_norm）
+         * - 删卡：删基本/角色卡 +20（remove），其他卡不计分，每个角色 删除上限5次
+         * - 复制：第1次0，第2次0，第3次+40，第4次+40，每个角色 复制上限4次
+         * - 转换：每次 +0（trans_total）；基本/角色卡 视为删除
+         * - 特殊：独立「诅咒」类卡牌删除后不计入删除次数
+         * - 新增：重铸 +10（reforge_total）；神之锤 +10（reforge_divine）（占分且“必定保存”优先级高）
+         * 
          */
 
-        // Scoring Weights (真实规则版)
+        // Scoring Weights
         const SCORING = {
             CARD_NEUTRAL: 20,
-            CARD_MONSTER: 80,
+            // CARD_MONSTER: 80,
+            CARD_MONSTER_1: 20,
+            CARD_MONSTER_2: 50,
+            CARD_MONSTER_3: 80,
             CARD_TABOO: 20,
 
-            EPIPHANY_NONCHAR_NORMAL: 10, // shiny_norm
-            EPIPHANY_DIVINE_ANY: 20,     // shiny_divine
+            // EPIPHANY_NONCHAR_NORMAL: 10, // shiny_norm
+            EPIPHANY_NONCHAR_NORMAL: 0,     // shiny_norm
+            EPIPHANY_DIVINE_ANY: 20,        // shiny_divine
 
-            OP_CONVERT: 10               // trans_total
+            // OP_CONVERT: 10               // trans_total
+            OP_CONVERT: 0,                  // trans_total
+
+            REFORGE_NORMAL:10,              // reforge_normal
+            REFORGE_DIVINE:10,              // reforge_divine
+
+            REMOVE:20                       // remove
         };
 
-        const STEP_COSTS = [0, 10, 30, 50, 70]; // 第1..第5次，之后一直按70
+        // const STEP_COSTS = [0, 10, 30, 50, 70]; // 第1..第5次，之后一直按70
+        const STEP_COSTS = [0, 0, 40, 40]; // 第1，2次 免费；第3，4次 +40
 
         function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
 
@@ -265,8 +284,11 @@
         }
 
         function calcCap(tier, mod01) {
-            const t = clamp((tier | 0) + (mod01 | 0), 1, 15); // Tier范围按UI：1-15
-            return 20 + t * 10;
+            // const t = clamp((tier | 0) + (mod01 | 0), 1, 15); // Tier范围按UI：1-15
+            const t = clamp((tier | 0), 1, 15); // Tier范围按UI：1-15
+
+            // return 20 + t * 10;
+            return 20 + (t + (mod01 | 0)) * 10;
         }
 
         let state = {
@@ -280,8 +302,10 @@
 
         function createDefaultInputs() {
             return {
-                neutral: 0, monster: 0, taboo: 0,
-                shiny_norm: 0, shiny_divine: 0, shiny_char: 0,
+                // neutral: 0, monster: 0, taboo: 0,
+                neutral: 0, monster_1: 0, monster_2: 0, monster_3: 0, taboo: 0,
+                // shiny_norm: 0, shiny_divine: 0, shiny_char: 0,
+                shiny_norm: 0, shiny_divine: 0, reforge_normal: 0, reforge_divine: 0,
                 del_total: 0, del_base: 0, copy_total: 0, trans_total: 0,
                 adv_del_rem: 0, adv_trans_rem: 0
             };
@@ -347,6 +371,8 @@
             const char = state.characters.find(c => c.id === charId);
             if (char) {
                 if (field === 'name') char.name = val;
+                else if (field === 'del_total') char.inputs[field] = clamp((val | 0), 0, 5);
+                else if (field === 'copy_total') char.inputs[field] = clamp((val | 0), 0, 4);
                 else char.inputs[field] = Math.max(0, parseInt(val) || 0);
                 render();
                 save();
@@ -363,17 +389,22 @@
             const b = {
                 cards:
                     (inputs.neutral | 0) * SCORING.CARD_NEUTRAL +
-                    (inputs.monster | 0) * SCORING.CARD_MONSTER +
+                    (inputs.monster_1 | 0) * SCORING.CARD_MONSTER_1 +
+                    (inputs.monster_2 | 0) * SCORING.CARD_MONSTER_2 +
+                    (inputs.monster_3 | 0) * SCORING.CARD_MONSTER_3 +
                     (inputs.taboo   | 0) * SCORING.CARD_TABOO,
 
-                // 普闪/顿悟：只计算“非角色卡普闪”；角色卡普闪仅记录不计分
+                // 普闪：不计分
                 epiphany:
                     (inputs.shiny_norm   | 0) * SCORING.EPIPHANY_NONCHAR_NORMAL +
-                    (inputs.shiny_divine | 0) * SCORING.EPIPHANY_DIVINE_ANY,
+                    (inputs.shiny_divine | 0) * SCORING.EPIPHANY_DIVINE_ANY +
+                    (inputs.reforge_normal | 0) * SCORING.REFORGE_NORMAL +
+                    (inputs.reforge_divine | 0) * SCORING.REFORGE_DIVINE,
 
                 // 删卡：阶梯递增 + 删基本/角色卡额外 +20/张
                 removal:
-                    stepSum(effDelTotal) + effDelBase * 20,
+                    // stepSum(effDelTotal) + effDelBase * 20,
+                    inputs.del_base * SCORING.REMOVE,
 
                 // 复制：阶梯递增（复制出的中立/怪物卡需在 composition 中体现）
                 dup:
@@ -434,8 +465,10 @@
                             <div class="section-header">01 Card Composition</div>
                             <div class="space-y-2">
                                 ${renderStepItem(char.id, 'neutral', '中立卡牌数量', char.inputs.neutral, 'box')}
-                                ${renderStepItem(char.id, 'monster', '怪物卡牌数量', char.inputs.monster, 'ghost')}
-                                ${renderStepItem(char.id, 'taboo', '禁忌卡牌数量', char.inputs.taboo, 'skull')}
+                                ${renderStepItem(char.id, 'monster_1', '怪物卡牌数量（普通）', char.inputs.monster_1, 'bug')}
+                                ${renderStepItem(char.id, 'monster_2', '怪物卡牌数量（稀有）', char.inputs.monster_2, 'ghost')}
+                                ${renderStepItem(char.id, 'monster_3', '怪物卡牌数量（传说）', char.inputs.monster_3, 'skull')}
+                                ${renderStepItem(char.id, 'taboo', '禁忌卡牌数量', char.inputs.taboo, 'wand-sparkles')}
                             </div>
                         </div>
 
@@ -443,9 +476,11 @@
                         <div>
                             <div class="section-header">02 Memory Resonance</div>
                             <div class="space-y-2">
-                                ${renderStepItem(char.id, 'shiny_norm', '中立普闪/顿悟', char.inputs.shiny_norm, 'zap')}
+                                ${renderStepItem(char.id, 'shiny_norm', '普闪次数', char.inputs.shiny_norm, 'sparkle')}
                                 ${renderStepItem(char.id, 'shiny_divine', '神闪次数', char.inputs.shiny_divine, 'sparkles')}
-                                ${renderStepItem(char.id, 'shiny_char', '角色卡普闪(记录)', char.inputs.shiny_char, 'user-check')}
+                                <!-- ${renderStepItem(char.id, 'shiny_char', '角色卡普闪(记录)', char.inputs.shiny_char, 'user-check')} -->
+                                ${renderStepItem(char.id, 'reforge_normal', '重铸次数', char.inputs.reforge_normal, 'anvil')}
+                                ${renderStepItem(char.id, 'reforge_divine', '神之锤', char.inputs.reforge_divine, 'hammer')}
                             </div>
                         </div>
 
@@ -453,8 +488,8 @@
                         <div>
                             <div class="section-header">03 Logical Operations</div>
                             <div class="grid grid-cols-1 gap-2">
-                                ${renderStepItem(char.id, 'del_total', '删卡总次数', char.inputs.del_total, 'scissors')}
-                                ${renderStepItem(char.id, 'del_base', '其中基本卡删减', char.inputs.del_base, 'trash-2')}
+                                <!-- ${renderStepItem(char.id, 'del_total', '删卡总次数', char.inputs.del_total, 'scissors')} -->
+                                ${renderStepItem(char.id, 'del_base', '删卡次数（基本卡）', char.inputs.del_base, 'trash-2')}
                                 ${renderStepItem(char.id, 'copy_total', '复制次数', char.inputs.copy_total, 'copy')}
                                 ${renderStepItem(char.id, 'trans_total', '转换次数', char.inputs.trans_total, 'refresh-ccw')}
                             </div>
